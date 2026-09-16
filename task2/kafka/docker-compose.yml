@@ -1,0 +1,61 @@
+services:
+
+  kafka:
+    image: apache/kafka:4.2.1
+    container_name: devops-kafka
+
+    ports:
+      - "9092:9092"
+
+    environment:
+      # KRaft
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      # Three listeners:
+      # INTERNAL  -> Docker containers
+      # EXTERNAL  -> host services such as rsyslog
+      # CONTROLLER -> KRaft controller
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://192.168.36.129:9092
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      # Single-node settings
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      # Default partition count
+      KAFKA_NUM_PARTITIONS: 1
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  akhq:
+    image: tchiotludo/akhq:0.28.0
+    container_name: devops-akhq
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            devops-kafka:
+              properties:
+                bootstrap.servers: "kafka:29092"
+
+    depends_on:
+      - kafka
+volumes:
+  kafka_data:
